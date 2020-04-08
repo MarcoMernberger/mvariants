@@ -1,10 +1,11 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 import pytest
-from mvariants.skeleton import fib
+from variant_calling.skeleton import fib
 
-__author__ = "Marco Mernberger"
-__copyright__ = "Marco Mernberger"
+__author__ = "MarcoMernberger"
+__copyright__ = "MarcoMernberger"
 __license__ = "mit"
 
 
