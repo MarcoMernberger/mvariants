@@ -7,9 +7,11 @@ __author__ = "Marco Mernberger"
 __copyright__ = "Copyright (c) 2020 Marco Mernberger"
 __license__ = "mit"
 
+import mbf
+import subprocess
+import pypipegraph2 as ppg
 from pathlib import Path
 from mbf.align.post_process import _PostProcessor
-import subprocess
 
 
 class Mutect2Processor(mbf.align.post_process._PostProcessor):
@@ -20,17 +22,19 @@ class Mutect2Processor(mbf.align.post_process._PostProcessor):
         barcode="NB552003",
         platform="illumina",
     ):
-        self.name = f"Mutectprocessor"
+        self.name = "Mutectprocessor"
         self.platform = platform
         self.barcode = barcode
         self.libname = libname
         self.result_folder_name = result_folder
+        self.command = "gatk"
         # TODO: finish implementation and uncouple from the variant call
 
     def process(self, input_bam_name, output_bam_name, result_dir):
         cmd = [
-            "python",
-            self.code_path,
+            # "python",
+            # self.code_path,
+            self.command,
             "AddOrReplaceReadGroups",
             "-I",
             f"{str(input_bam_name)}",
@@ -54,9 +58,7 @@ class Mutect2Processor(mbf.align.post_process._PostProcessor):
 
     def get_version(self):
         return (
-            subprocess.check_output(["python", self.code_path, "--version"])
-            .decode("utf-8")
-            .strip()
+            subprocess.check_output([self.command, "--version"]).decode("utf-8").strip()
         )
 
     def get_parameters(self):
@@ -69,8 +71,9 @@ class Mutect2Processor(mbf.align.post_process._PostProcessor):
 
         def __dump():
             cmd = [
-                "python",
-                "code/gatk/gatk-4.1.4.0/gatk",
+                # "python",
+                # "code/gatk/gatk-4.1.4.0/gatk",
+                self.command,
                 "FilterMutectCalls",
                 "-V",
                 str(infile),

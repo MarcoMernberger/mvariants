@@ -15,12 +15,9 @@ from mbf.align.post_process import _PostProcessor
 from mbf.genomes import GenomeBase
 from pypipegraph import Job
 from .base import OptionHandler, GATK
-from mbf.externals import ExternalAlgorithmStore
-import mbf.align
 import subprocess
 import pypipegraph as ppg
 import shutil
-import sys
 
 
 class _PreProcessor(ABC):
@@ -132,7 +129,7 @@ class SamtoolsmPileupSingleFile(_PreProcessor):
     Pileup preprocessor, turns input bams into pileup files.
 
     This preprocessor is a wrapper for samtools and creates a single
-    pileup file for a list of samples using the mpileup command. 
+    pileup file for a list of samples using the mpileup command.
     If matched tumor-normal samples are given, it will create two pileup
     files, one is tumor the other is normal.
     No additional preprocessing steps are taken.
@@ -231,12 +228,12 @@ class SamtoolsmPileupSingleFile(_PreProcessor):
 
         Returns the filename of the pileup file to be created from input_samples
         by self.preprocess.
-                
+
         Parameters
         ----------
         input_samples : List[mbf.align.AlignedSample]
             List of one or multiple samples as input for the pileup file.
-        
+
         Returns
         -------
         str
@@ -247,33 +244,36 @@ class SamtoolsmPileupSingleFile(_PreProcessor):
             input_name = input_name[:250]
         return self.cache_dir / input_name
 
-    def get_preprocessed_output(
-        self, input_samples: List[List[AlignedSample]]
-    ) -> List[Path]:
+    def get_preprocessed_output(self, input_samples: List[AlignedSample]) -> List[Path]:
         """
-        Returns a list of Path objects to be created from input_samples.
+                Returns a list of Path objects to be created from input_samples.
 
-        Returns a list of Path objects that correspond to the files created by
-        the preprocessor from input_samples. That way, the preprocessor can tell
-        which files it is going to create via self.preprocess(). Overrides
-        abstract superclass method ~Preprocessor.get_preprocessed_output.
+                Returns a list of Path objects that correspond to the files created by
+                the preprocessor from input_samples. That way, the preprocessor can tell
+                which files it is going to create via self.preprocess(). Overrides
+                abstract superclass method ~Preprocessor.get_preprocessed_output.
 
-        Parameters
-        ----------
-        input_samples : List[List[mbf.align.AlignedSample]]
-            List of two lists containing the input samples to be analyzed. 
-            Multiple samples are given in the first list. Additional matched
-            samples can be supplied in the second list.
+                Parameters
+                ----------
+        <<<<<<< HEAD
+                input_samples : List[List[mbf.align.AlignedSample]]
+                    List of two lists containing the input samples to be analyzed.
+                    Multiple samples are given in the first list. Additional matched
+                    samples can be supplied in the second list.
+        =======
+                input_samples : List[mbf_align.AlignedSample]
+                    List containing the input samples to be analyzed.
+                    Multiple samples can be given in the list (mpileup).
+                    Additional matched samples have to be calculated separately.
+        >>>>>>> f69e854b64d8fe6f5b7c3fccd2c2b3b64eae351a
 
-        Returns
-        -------
-        List[Path]
-            List of Path objects to be created.
+                Returns
+                -------
+                List[Path]
+                    List of Path objects to be created.
         """
 
-        samples_name = self._get_filename(input_samples[0])
-        if len(input_samples[1]) > 0:
-            return [samples_name, self._get_filename(input_samples[1])]
+        samples_name = self._get_filename(input_samples)
         return [samples_name]
 
     def run_modifier(self) -> Callable:
@@ -322,6 +322,7 @@ class SamtoolsmPileupSingleFile(_PreProcessor):
         """
         input_bams = [input_sample.get_bam_names()[0] for input_sample in input_samples]
         mpileup = self._get_filename(input_samples)
+        print(mpileup)
         # for each list of samples in input_samples we must pile up
         with Path(str(mpileup) + ".stderr").open("w") as stderr:
             cmd_generate_pileup = [
@@ -335,6 +336,7 @@ class SamtoolsmPileupSingleFile(_PreProcessor):
             cmd_generate_pileup.extend(self.options)
             for input_bam in input_bams:
                 cmd_generate_pileup.extend(["-I", input_bam])
+            print(" ".join(cmd_generate_pileup))
             stderr.write(" ".join(cmd_generate_pileup) + "\n")
             stderr.flush()
             try:
@@ -345,34 +347,61 @@ class SamtoolsmPileupSingleFile(_PreProcessor):
                 )
                 raise
 
-    def preprocess(self, input_samples: List[List[AlignedSample]]) -> Callable:
+    def preprocess(self, input_samples: List[AlignedSample]) -> Callable:
         """
-        Returns a function that creates input files for the variant caller.
+                Returns a function that creates input files for the variant caller.
 
-        Returns a function that creates a single pileup file for the first
-        and optionally second list of input_samples. Overrides the abstract
-        superclass method ~PreProcessor.preprocess.
+                Returns a function that creates a single pileup file for the first
+                and optionally second list of input_samples. Overrides the abstract
+                superclass method ~PreProcessor.preprocess.
+                New: This makes no sense with the reference files as well, change it.
 
-        Parameters
-        ----------
-        input_samples : List[List[mbf.align.AlignedSample]]
-            List of two lists containing the input samples to be analyzed.
-            Multiple samples are given in the first list. Additional Matched
-            samples can be supplied in the second list.
+                Parameters
+                ----------
+        <<<<<<< HEAD
+                input_samples : List[List[mbf.align.AlignedSample]]
+                    List of two lists containing the input samples to be analyzed.
+                    Multiple samples are given in the first list. Additional Matched
+                    samples can be supplied in the second list.
+        =======
+                input_samples : List[mbf_align.AlignedSample]
+                    List of input samples to be analyzed.
+                    Multiple samples can be given. Additional Matched
+                    samples must be supplied separately.
+        >>>>>>> f69e854b64d8fe6f5b7c3fccd2c2b3b64eae351a
 
-        Returns
-        -------
-        Callable
-            A function that wraps Caller.run().
+                Returns
+                -------
+                Callable
+                    A function that wraps Caller.run().
         """
 
         def do_pileup():
-            reference_path = input_samples[0][0].genome.find_file("genome.fasta")
-            for sample_list in input_samples:
-                if len(sample_list) > 0:
-                    self.__do_pileup_single_file(sample_list, reference_path)
+            print("do_pileup called")
+            reference_path = input_samples[0].genome.find_file("genome.fasta")
+            if len(input_samples) > 0:
+                print("here")
+                self.__do_pileup_single_file(input_samples, reference_path)
 
         return do_pileup
+
+    def preprocess_jobs(self, input_samples: List[AlignedSample]) -> List[Job]:
+        preprocessor_output = self.get_preprocessed_output(input_samples)
+        lanes_loaded = [input_sample.load() for input_sample in input_samples]
+
+        def __create(output: Path):
+            print("create called")
+            self.preprocess(input_samples)()
+
+        preprocessor_job = ppg.FileGeneratingJob(
+            preprocessor_output[0],
+            __create,
+        )
+        preprocessor_job.depends_on(lanes_loaded)
+        preprocessor_job.depends_on(self.get_dependencies()).depends_on(
+            self.prerequisite_jobs()
+        )
+        return [preprocessor_job]
 
 
 class GATKPreprocessor(GATK, _PreProcessor):
@@ -387,10 +416,8 @@ class GATKPreprocessor(GATK, _PreProcessor):
     def __init__(
         self,
         genome: GenomeBase,
-        instance_name: str = None,
-        version: str = "_last_used",
+        instance_name: Optional[str] = None,
         options: Dict[str, Any] = {},
-        store=None,
         **kwargs,
     ):
         """
@@ -406,7 +433,8 @@ class GATKPreprocessor(GATK, _PreProcessor):
             [description], by default None
         """
         super().__init__(
-            tool="ValidateSamFile", options=options, version=version, store=store,
+            tool="ValidateSamFile",
+            options=options,
         )
         self.instance_name = (
             f"GATKPreprocessor_{genome.name}"
@@ -487,7 +515,7 @@ class GATKPreprocessor(GATK, _PreProcessor):
         """
         Checks a bam file for compliance with GATK standards.
 
-        This will complain if GATK cannot deal with your bam files.        
+        This will complain if GATK cannot deal with your bam files.
 
         Parameters
         ----------
@@ -589,7 +617,7 @@ class GATKPreprocessor(GATK, _PreProcessor):
         Returns a list of dependencies.
 
         Returns a list of pypipegraph.Job instances that
-        need to run before the actual mutation analysis. Overrides the 
+        need to run before the actual mutation analysis. Overrides the
         superclass method.
 
         Returns
@@ -628,22 +656,18 @@ class GATKLanePostProcessor(GATK, _PostProcessor):
     def __init__(
         self,
         options: Dict[str, str] = {"-PL": "ILLUMINA", "-PU": "na", "-LB": "na"},
-        version: str = "_last_used",
-        store: Optional[ExternalAlgorithmStore] = None,
     ):
         """GATKLanePostProcessor constructor, see class documentation for details."""
         super().__init__(
             tool="AddOrReplaceReadGroups",
             options=options,
-            version=version,
-            store=store,
         )
 
     def process(
         self, input_bam_name: Path, output_bam_name: Path, result_dir: Path
     ) -> None:
         """
-        Adds a read group to bam files and outputs them to a new bam file in 
+        Adds a read group to bam files and outputs them to a new bam file in
         cache directory.
 
         Parameters

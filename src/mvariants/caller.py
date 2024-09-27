@@ -7,9 +7,8 @@ from pypipegraph import Job
 from mvariants import __version__
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional, Callable, List, Dict, Tuple, Any
+from typing import Optional, Callable, List, Dict, Tuple, Any, Union
 from mbf.align.lanes import AlignedSample
-from mbf.externals import ExternalAlgorithm, ExternalAlgorithmStore
 from .base import OptionHandler, GATK
 from .pre_process import SamtoolsmPileupSingleFile, _PreProcessor, GATKPreprocessor
 from .util import download_file_and_targz, parse_vcf2
@@ -189,7 +188,7 @@ class _Caller(ABC):
         return 1
 
 
-class VarScan2(_Caller, ExternalAlgorithm):
+class VarScan2(_Caller):
     """
     Wrapper for the VarScan2 variant caller.
 
@@ -211,9 +210,6 @@ class VarScan2(_Caller, ExternalAlgorithm):
         Dictionary of parameter-values to be supplied to the GATK call.
     version : str, optional
         Version of the tool to be used, by default "_last_used".
-    store : ExterrnalAlgorithmStore, optional
-        Store that handles downloads and provides thh external tool, by default
-        None.
 
     Raises
     ------
@@ -224,16 +220,14 @@ class VarScan2(_Caller, ExternalAlgorithm):
     def __init__(
         self,
         caller_type: str,
-        preprocessor: _PreProcessor = None,
+        preprocessor: Optional[Union[_PreProcessor, str]] = "default",
         options: Dict[str, Any] = {},
-        version: str = "_last_used",
-        store: Optional[ExternalAlgorithmStore] = None,
         **kwargs,
     ) -> None:
         """VarScan2 constructor, see class documentation for details."""
         _instance_name = kwargs.get("instance_name", f"Varscan_{caller_type}")
         _preprocessor = preprocessor
-        if _preprocessor is None:
+        if _preprocessor == "default":
             # if no preprocessor is given, initialize a default samtools pileup
             _preprocessor = SamtoolsmPileupSingleFile(
                 min_base_quality=options.get("--min-avg-qual", 15)
@@ -241,10 +235,8 @@ class VarScan2(_Caller, ExternalAlgorithm):
         super().__init__(
             instance_name=_instance_name,
             preprocessor=_preprocessor,
-            version=version,
-            store=store,
         )
-        self.jarname = f"VarScan.v{self.version}.jar"
+        self.command = "varscan"
         self.valid_types = self.get_valid_types()
         if caller_type not in self.valid_types:
             raise ValueError(
@@ -260,26 +252,6 @@ class VarScan2(_Caller, ExternalAlgorithm):
         self._options = self.optionhandler.check_options(options)
         if len(self._options) == 0:
             self._options = self.optionhandler.default_parameter
-
-    latest_version = "2.4.4"
-
-    def fetch_version(self, version: str, target_filename: Path):
-        """
-        Takes care of the tool download.
-
-        Overrides the ExternalAlgorithm methood. Downloads the jar file
-        to the prebuild location specified by the corresponding
-        ExternalAlgorithmStore and packs it into a tar.gz file.
-
-        Parameters
-        ----------
-        version : str
-            The tool version to be used.
-        target_filename : Path
-            The path to the local tar.gz file.
-        """
-        url = f"https://github.com/dkoboldt/varscan/raw/master/VarScan.v{version}.jar"
-        download_file_and_targz(url, f"VarScan.v{version}.jar", target_filename)
 
     @property
     def name(self) -> str:
@@ -333,11 +305,13 @@ class VarScan2(_Caller, ExternalAlgorithm):
         List[str]
             Command to subprocess as a list of strings.
         """
-        return ["java", "-jar", str(self.path / self.jarname)] + arguments
+        return [self.command] + arguments
 
-    def get_latest_version(self) -> str:
+    def get_version(self) -> str:
         """Getter for the latest_version attribute."""
-        return self.latest_version
+        out = subprocess.check_output([self.command])
+        version = out.decode().split("\n")[0].replace("VarScan v", "")
+        return version
 
     def __execute(self, command):
         """Calls a command via subprocess."""
@@ -465,6 +439,8 @@ class VarScan2(_Caller, ExternalAlgorithm):
                 "w"
             ) as stderr, output_file.open("w") as outp:
                 stderr.write(" ".join(cmd_call) + "\n")
+                print(" ".join(cmd_call))
+                raise ValueError()
                 try:
                     p2 = subprocess.Popen(cmd_call, stdout=outp, stderr=stderr)
                     p2.communicate()
@@ -555,11 +531,6 @@ class Mutect2(GATK, _Caller):
         genome must be specified.
     options : Optional[Dict[str, str]], optional
         Dictionary of parameter-values to be supplied to the Mutect2 call.
-    version : str, optional
-        Version of the tool to be used, by default "_last_used".
-    store : ExterrnalAlgorithmStore, optional
-        Store that handles downloads and provides thh external tool, by default
-        None.
 
     Raises
     ------
@@ -569,10 +540,8 @@ class Mutect2(GATK, _Caller):
 
     def __init__(
         self,
-        preprocessor: _PreProcessor = None,
+        preprocessor: Optional[_PreProcessor] = None,
         options: Dict[str, Any] = {},
-        version: str = "_last_used",
-        store: Optional[ExternalAlgorithmStore] = None,
         **kwargs,
     ):
         """Mutect2 constructor, see class documentation for details."""
@@ -587,12 +556,10 @@ class Mutect2(GATK, _Caller):
                 _preprocessor = GATKPreprocessor(
                     genome=genome, instance_name="GATKPreprocess_default"
                 )
-        _instance_name = kwargs.get("instance_name", f"Mutect2")
+        _instance_name = kwargs.get("instance_name", "Mutect2")
         super().__init__(
             tool="Mutect2",
             options=options,
-            version=version,
-            store=store,
             instance_name=_instance_name,
             preprocessor=_preprocessor,
             **kwargs,
@@ -606,10 +573,6 @@ class Mutect2(GATK, _Caller):
         Overrides the ExternalAlgorithm method.
         """
         return True
-
-    def get_latest_version(self):
-        """Getter for the latest_version attribute."""
-        return self.latest_version
 
     def __repr__(self) -> str:
         return f"Mutect2({self.preprocessor.__repr__()})"  # , {self.options}

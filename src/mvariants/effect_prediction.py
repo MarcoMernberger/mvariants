@@ -7,7 +7,6 @@ __author__ = "Marco Mernberger"
 __copyright__ = "Copyright (c) 2020 Marco Mernberger"
 __license__ = "mit"
 
-from mbf.externals import ExternalAlgorithm, ExternalAlgorithmStore
 from mbf.externals.util import download_file
 from typing import Optional, Dict, List
 from pathlib import Path
@@ -20,7 +19,7 @@ import random
 import docker
 
 
-class VEP(ExternalAlgorithm):
+class VEP:
     """
     VEP Wrapper for the ensembl variant effect predictor docker.
 
@@ -47,15 +46,12 @@ class VEP(ExternalAlgorithm):
         species: Optional[str] = "homo_sapiens",
         revision: Optional[int] = 99,
         grch: Optional[str] = "GRCh38",
-        store: Optional[ExternalAlgorithm] = None,
     ) -> None:
         """VEP constructor, see class documentation for details."""
         self.grch = grch
         self.revision = revision
-        self.species = species.lower()
         self.full_version_cache = f"{self.species}_vep_{self.revision}_{self.grch}"
-        version = f"{self.species}_{self.revision}"
-        super().__init__(version, store)
+        self.version = f"{self.species}_{self.revision}"
         self.image = "ensemblorg/ensembl-vep"
         self.wdir = "/project"
         self.volumes = {

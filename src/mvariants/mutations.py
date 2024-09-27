@@ -1,9 +1,11 @@
 import pandas as pd
 import mbf.genomes
 import numpy as np
+
 _mutation_ignored_transcripts = [
     "ENST00000361390"  # since it is not a complete coding sequence
 ]
+
 
 def get_cds_sequence(genome, protein_id, protein_info=None):
     """Get the coding sequence (rna) of a protein"""
@@ -50,17 +52,23 @@ def get_amino_acid_exchange(chr, pos, reference_base, actual_bases, genome):
                         transcript_id = tid
                     subs.append(ret[mb][tid])
     gene_ids = {}
-    to_df = {'gene_stable_id' : [], 'gene_name' : [], 'transcript_stable_id' : [], 'mb' : [], 'change' : []}
+    to_df = {
+        "gene_stable_id": [],
+        "gene_name": [],
+        "transcript_stable_id": [],
+        "mb": [],
+        "change": [],
+    }
     for mb in ret:
         for transcript_id in altered_transcripts:
-            gene_id = genome.df_transcripts.loc[transcript_id]['gene_stable_id']
-            gene_name = genome.df_genes.loc[gene_id]['name']
+            gene_id = genome.df_transcripts.loc[transcript_id]["gene_stable_id"]
+            gene_name = genome.df_genes.loc[gene_id]["name"]
             gene_ids[gene_id] = gene_name
-            to_df['gene_stable_id'].append(gene_id)        
-            to_df['gene_name'].append(gene_name)
-            to_df['mb'].append(mb)
-            to_df['transcript_stable_id'].append(transcript_id)
-            to_df['change'].append(ret[mb][transcript_id])
+            to_df["gene_stable_id"].append(gene_id)
+            to_df["gene_name"].append(gene_name)
+            to_df["mb"].append(mb)
+            to_df["transcript_stable_id"].append(transcript_id)
+            to_df["change"].append(ret[mb][transcript_id])
     df = pd.DataFrame(to_df)
     return df, altered
 
@@ -125,9 +133,8 @@ def snp_induced_cdna_changes(snp_df, genome):
     potentially_affected_transcripts = snp_hit_transcripts(snp_df, genome)
     result = {}
     for transcript_info in potentially_affected_transcripts.iter_rows():
-        original_cdna, mutated_cdna = snp_changed_cds(
-            snp_df, genome, transcript_info)
-        result[transcript_info['transcript_stable_id']] = mutated_cdna
+        original_cdna, mutated_cdna = snp_changed_cds(snp_df, genome, transcript_info)
+        result[transcript_info["transcript_stable_id"]] = mutated_cdna
     return result
 
 
@@ -138,73 +145,108 @@ def snp_changed_cds(snp_df, genome, transcript_info_or_stable_id):
     not the end is not - you can either use get_translation_stop(), or look for the stop codon...
     """
     if isinstance(transcript_info_or_stable_id, str):
-        transcript_info = genome.get_transcript_info(
-            transcript_info_or_stable_id)
+        transcript_info = genome.get_transcript_info(transcript_info_or_stable_id)
     else:
         transcript_info = transcript_info_or_stable_id
     reference_sequence = ""
     mutated_sequence = ""
     start_correction = 0
     ii = 0
-    proteins = genome.df_proteins[genome.df_proteins['transcript_stable_id'] == transcript_info_or_stable_id[0]]
+    proteins = genome.df_proteins[
+        genome.df_proteins["transcript_stable_id"] == transcript_info_or_stable_id[0]
+    ]
     if len(proteins) == 1:
         cds_positions = []
-        for protein_start, protein_stop in proteins['cds'].values[0]:
+        for protein_start, protein_stop in proteins["cds"].values[0]:
             cds_positions.extend([protein_stop, protein_start])
-        if transcript_info[1]['strand'] == -1:
+        if transcript_info[1]["strand"] == -1:
             translation_start = np.max(cds_positions)
         else:
             translation_start = np.min(cds_positions)
     else:
-        if transcript_info[1]['strand'] == -1:
-            translation_start = transcript_info[1]['stop']
+        if transcript_info[1]["strand"] == -1:
+            translation_start = transcript_info[1]["stop"]
         else:
-            translation_start = transcript_info[1]['start']
-    for exon_start, exon_stop in transcript_info[1]['exons']: # no need to to anything for exons before the start, but do till the end, since we hight find something interesting
+            translation_start = transcript_info[1]["start"]
+    for exon_start, exon_stop in transcript_info[1][
+        "exons"
+    ]:  # no need to to anything for exons before the start, but do till the end, since we hight find something interesting
         exon_seq = genome.get_genome_sequence(
-            transcript_info[1]['chr'], exon_start, exon_stop).lower()
+            transcript_info[1]["chr"], exon_start, exon_stop
+        ).lower()
         mutated_exon = exon_seq
         for i, row in snp_df.iterrows():
-            pos = int(row['pos'])
-            if row['chr'] == transcript_info[1]['chr']:
+            pos = int(row["pos"])
+            if row["chr"] == transcript_info[1]["chr"]:
                 if exon_start <= pos < exon_stop:
                     # snps always match the +1 strand
-#                    if exon_seq[row['pos'] - exon_start: row['pos'] - exon_start + len(row['ref'])].upper() != row['ref'].upper():
+                    #                    if exon_seq[row['pos'] - exon_start: row['pos'] - exon_start + len(row['ref'])].upper() != row['ref'].upper():
                     try:
-                        if row['ref'].upper().find(exon_seq[pos - exon_start: pos - exon_start + len(row['ref'])].upper()) != 0:
-                            raise ValueError("Reference base did not match %s Was: %s" % (
-                                row, exon_seq[pos - exon_start: pos - exon_start + len(row['ref'])]))
+                        if (
+                            row["ref"]
+                            .upper()
+                            .find(
+                                exon_seq[
+                                    pos
+                                    - exon_start : pos
+                                    - exon_start
+                                    + len(row["ref"])
+                                ].upper()
+                            )
+                            != 0
+                        ):
+                            raise ValueError(
+                                "Reference base did not match %s Was: %s"
+                                % (
+                                    row,
+                                    exon_seq[
+                                        pos
+                                        - exon_start : pos
+                                        - exon_start
+                                        + len(row["ref"])
+                                    ],
+                                )
+                            )
                     except TypeError:
-                        print(pos, exon_start, len(row['ref']))
+                        print(pos, exon_start, len(row["ref"]))
                         raise
-                    mutated_exon = mutated_exon[
-                        :pos - exon_start] + row['alt'].upper() + mutated_exon[pos - exon_start + len(row['ref']):]
-                    if transcript_info[1]['strand'] == 1 and len(mutated_sequence) + (pos - exon_start) <=  translation_start: # we are before the ATG
-                        start_correction +=  len(row['alt']) - len(row['ref'])
-                    elif transcript_info[1]['strand'] == -1 and len(mutated_sequence) + exon_stop - pos >=  translation_start: # we are before the ATG
-                        start_correction +=  len(row['alt']) - len(row['ref'])
+                    mutated_exon = (
+                        mutated_exon[: pos - exon_start]
+                        + row["alt"].upper()
+                        + mutated_exon[pos - exon_start + len(row["ref"]) :]
+                    )
+                    if (
+                        transcript_info[1]["strand"] == 1
+                        and len(mutated_sequence) + (pos - exon_start)
+                        <= translation_start
+                    ):  # we are before the ATG
+                        start_correction += len(row["alt"]) - len(row["ref"])
+                    elif (
+                        transcript_info[1]["strand"] == -1
+                        and len(mutated_sequence) + exon_stop - pos >= translation_start
+                    ):  # we are before the ATG
+                        start_correction += len(row["alt"]) - len(row["ref"])
         reference_sequence += exon_seq
         mutated_sequence += mutated_exon
         ii += 1
-    start_offset = transcript_info[1]['start'] - translation_start
-    if transcript_info[1]['strand'] == -1:
-        start_offset = translation_start - transcript_info[1]['stop']
-        reference_sequence = mbf.genomes.common.reverse_complement(
-            reference_sequence
-            )
-        mutated_sequence = mbf.genomes.common.reverse_complement(
-            mutated_sequence)
+    start_offset = transcript_info[1]["start"] - translation_start
+    if transcript_info[1]["strand"] == -1:
+        start_offset = translation_start - transcript_info[1]["stop"]
+        reference_sequence = mbf.genomes.common.reverse_complement(reference_sequence)
+        mutated_sequence = mbf.genomes.common.reverse_complement(mutated_sequence)
 
     # ensembl is 1 based..-1
     reference_sequence = reference_sequence[start_offset:]
     # ensembl is 1 based..
-    mutated_sequence = mutated_sequence[start_offset + start_correction:]
+    mutated_sequence = mutated_sequence[start_offset + start_correction :]
     return reference_sequence, mutated_sequence
+
 
 def _to_snp_df(chr, pos, reference_base, actual_bases):
     return pd.DataFrame(
         {"chr": [chr], "pos": [pos], "ref": [reference_base], "alt": [actual_bases]}
     )
+
 
 def snp_induced_protein_changes(snp_df, genome):
     """Given a df of {chr, pos, ref, alt} SNP information,
@@ -213,27 +255,25 @@ def snp_induced_protein_changes(snp_df, genome):
     potentially_affected_transcripts = snp_hit_transcripts(snp_df, genome)
     result = {}
     for transcript_info in potentially_affected_transcripts.iterrows():
-        original_cdna, mutated_cdna = snp_changed_cds(
-            snp_df, genome, transcript_info)
+        original_cdna, mutated_cdna = snp_changed_cds(snp_df, genome, transcript_info)
         original_aa = genome.genetic_code.translate_dna_till_stop(original_cdna)
         mutated_aa = genome.genetic_code.translate_dna_till_stop(mutated_cdna)
         if original_aa != mutated_aa:
-            result[transcript_info[1]['transcript_stable_id']] = mutated_aa
+            result[transcript_info[1]["transcript_stable_id"]] = mutated_aa
     return result
 
 
 def snp_induced_protein_changes_full_info(snp_df, genome):
     """Given a df of {chr, pos, ref, alt} SNP information,
     this extracts all ensembl transcripts where the snps induce a protein change.
-    Result is a dictionary: transcript_stable_id -> 
+    Result is a dictionary: transcript_stable_id ->
     {'original_cds': '', 'mutated_cds: '', 'original_aa': '', 'mutated_aa': ''}
-    
+
     altered amino acid sequence"""
     potentially_affected_transcripts = snp_hit_transcripts(snp_df, genome)
     result = {}
     for transcript_info in potentially_affected_transcripts.iterrows():
-        original_cdna, mutated_cdna = snp_changed_cds(
-            snp_df, genome, transcript_info)
+        original_cdna, mutated_cdna = snp_changed_cds(snp_df, genome, transcript_info)
         original_aa = genome.genetic_code.translate_dna_till_stop(original_cdna)
         try:
             mutated_aa = genome.genetic_code.translate_dna_till_stop(mutated_cdna)
@@ -241,11 +281,11 @@ def snp_induced_protein_changes_full_info(snp_df, genome):
             mutated_aa = "NNNNNN"
         if original_aa != mutated_aa:
             result[transcript_info[0]] = {
-                    'original_cds': original_cdna,
-                    'mutated_cds': mutated_cdna,
-                    'original_aa': original_aa,
-                    'mutated_aa': mutated_aa,
-                    }
+                "original_cds": original_cdna,
+                "mutated_cds": mutated_cdna,
+                "original_aa": original_aa,
+                "mutated_aa": mutated_aa,
+            }
     return result
 
 
@@ -264,11 +304,13 @@ def snp_hit_transcripts(snp_df, genome):
         )  # returns None if there are no overlapping
         if genes_overlapping is not None:
             for stable_id, row_genes in genes_overlapping.iterrows():
-                for transcript_stable_id in row_genes['transcript_stable_ids']:
+                for transcript_stable_id in row_genes["transcript_stable_ids"]:
                     # don't bother if it is already in the list
                     if not transcript_stable_id in hit_transcripts:
-                        transcript_info = genome.df_transcripts.loc[transcript_stable_id]
-                        
+                        transcript_info = genome.df_transcripts.loc[
+                            transcript_stable_id
+                        ]
+
                         for exon_start, exon_stop in transcript_info["exons"]:
                             if (
                                 row["chr"] == transcript_info["chr"]
@@ -285,6 +327,7 @@ def snp_hit_transcripts(snp_df, genome):
         return pd.DataFrame(
             {"transcript_stable_id": [], "exons": [], "gene_stable_id": []}
         )
+
 
 '''
 def get_translation_stop(transcript_info):

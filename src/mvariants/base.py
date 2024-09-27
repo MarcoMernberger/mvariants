@@ -14,7 +14,6 @@ from mbf.externals.util import download_zip_and_turn_into_tar_gzip
 import warnings
 import subprocess
 import re
-import inspect
 
 
 class OptionHandler:
@@ -116,9 +115,7 @@ class OptionHandler:
         str
             String of accepted arguments.
         """
-        return "\n".join(
-            [f"{item[0]}:{item[1]}" for item in self.accepted_arguments.items()]
-        )
+        return "\n".join([f"{item[0]}:{item[1]}" for item in self.accepted_arguments.items()])
 
     def print_help(self) -> None:
         """Prints the help string of the external method."""
@@ -217,7 +214,7 @@ class OptionHandler:
         return [str(x) for x in OptionHandler.options_as_list(options)]
 
 
-class GATK(ExternalAlgorithm):
+class GATK:
     """
     Wrapper class for the GATK toolbox.
 
@@ -250,14 +247,11 @@ class GATK(ExternalAlgorithm):
         self,
         tool: Optional[str] = None,
         options: Optional[Dict[str, str]] = {},
-        version: str = "_last_used",
-        store: Optional[ExternalAlgorithmStore] = None,
         **kwargs,
     ):
         """GATK constructor, see class documentation for details."""
         defname = "base"
-        super().__init__(version=version, store=store, **kwargs)
-        self.command = [f"gatk-{self.version}/gatk"]
+        self.command = "gatk"
         tools = self.parse_tools()
         if tool is not None:
             if tool not in tools:
@@ -266,17 +260,16 @@ class GATK(ExternalAlgorithm):
         self.tool = tool
         self.instance_name = kwargs.get("instance_name", "_".join(["GATK", defname]))
         explicit = kwargs.get("explicit_options", True)
-        self.optionhandler = OptionHandler(
-            f"{self.instance_name}_optionhandler",
-            self.get_option_parser(),
-            warn="always",
-            explicit=explicit,
-        )
-        self.options = self.optionhandler.check_options(options)
-        if len(self.options) == 0:
-            self.options = self.optionhandler.default_parameter
-
-    latest_version = "4.1.6.0"
+        # self.optionhandler = OptionHandler(
+        #    f"{self.instance_name}_optionhandler",
+        #    self.get_option_parser(),
+        #    warn="always",
+        #    explicit=explicit,
+        # )
+        # self.options = self.optionhandler.check_options(options)
+        # if len(self.options) == 0:
+        #    self.options = self.optionhandler.default_parameter
+        self.options = options
 
     def fetch_version(self, version: str, target_filename: Path) -> None:
         """
@@ -293,7 +286,9 @@ class GATK(ExternalAlgorithm):
         target_filename : Path
             The path to the local tar.gz file.
         """
-        url = f"https://github.com/broadinstitute/gatk/releases/download/{version}/gatk-{version}.zip"
+        url = (
+            f"https://github.com/broadinstitute/gatk/releases/download/{version}/gatk-{version}.zip"
+        )
         download_zip_and_turn_into_tar_gzip(
             url, target_filename, chmod_x_files=[f"gatk-{version}/gatk"]
         )
@@ -341,9 +336,7 @@ class GATK(ExternalAlgorithm):
         """
         return "-nct" in self.options or "-nt" in self.options
 
-    def build_cmd(
-        self, output_directory: Optional[Path], ncores: int, arguments: List[str]
-    ):
+    def build_cmd(self, output_directory: Optional[Path], ncores: int, arguments: List[str]):
         """
         Returns a command as a list of strings to be passed to subprocess.
 
@@ -367,12 +360,8 @@ class GATK(ExternalAlgorithm):
             Command to subprocess as a list of strings.
         """
         if self.tool is None:
-            return [str(self.path / self.command[0])] + arguments
-        return [str(self.path / self.command[0]), self.tool] + arguments
-
-    def get_latest_version(self):
-        """Returns the latest_version attribute."""
-        return self.latest_version
+            return [self.command] + arguments
+        return [self.command, self.tool] + arguments
 
     def __repr__(self) -> str:
         return f"GATK({self.tool}, {self.options})"
@@ -409,7 +398,7 @@ class GATK(ExternalAlgorithm):
         List[str]
             List of tool options for GATK.
         """
-        command = [str(self.path / self.command[0]), "--list"]
+        command = [self.command, "--list"]
         try:
             help_str = subprocess.check_output(
                 command,
@@ -441,6 +430,7 @@ class GATK(ExternalAlgorithm):
 
         def __init_options() -> Tuple[str, Dict[str, str], Dict[str, Any]]:
             command = self.build_cmd(None, 1, ["--help"])
+            print(command)
             try:
                 help_str = subprocess.check_output(
                     command,
@@ -456,14 +446,15 @@ class GATK(ExternalAlgorithm):
                 if line is None:
                     pass
                 elif line.startswith("--"):
-
                     splits = re.split(r"\s{1,}", line.strip())
+                    print("splits", splits)
                     splits = [splits[0], " ".join(splits[1:] + [valid])]
-                    required = splits[1].endswith("Required. ")
+                    required = "Required." in splits[1]
                     opt = splits[0]
                     sep = opt.find(",")
                     if sep > 0:
                         opt = opt[sep + 1 :]
+                        print(opt)
                     option_name, option_type = tuple(opt.split(":"))
                     allowed_options[option_name] = splits[1] + f"Type={option_type}."
                     if not required and not valid.startswith("Valid"):
@@ -479,19 +470,15 @@ class GATK(ExternalAlgorithm):
                                     except NameError:
                                         pass
                                 default_values[option_name] = val
-                                if (
-                                    "This argument may be specified 0 or more times"
-                                    in splits[1]
-                                ):
-                                    default_values[option_name] = list(
-                                        default_values[option_name]
-                                    )
+                                if "This argument may be specified 0 or more times" in splits[1]:
+                                    default_values[option_name] = list(default_values[option_name])
                 else:
                     pass
                 return valid
 
             newline = ""
             for line in help_str.split("\n"):
+                print(line)
                 if line == "":
                     __commit(newline, default_values, allowed_options, valid)
                     newline = line
