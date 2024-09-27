@@ -1,5 +1,5 @@
 import pandas as pd
-import mbf_genomes
+import mbf.genomes
 import numpy as np
 _mutation_ignored_transcripts = [
     "ENST00000361390"  # since it is not a complete coding sequence
@@ -189,10 +189,10 @@ def snp_changed_cds(snp_df, genome, transcript_info_or_stable_id):
     start_offset = transcript_info[1]['start'] - translation_start
     if transcript_info[1]['strand'] == -1:
         start_offset = translation_start - transcript_info[1]['stop']
-        reference_sequence = mbf_genomes.common.reverse_complement(
+        reference_sequence = mbf.genomes.common.reverse_complement(
             reference_sequence
             )
-        mutated_sequence = mbf_genomes.common.reverse_complement(
+        mutated_sequence = mbf.genomes.common.reverse_complement(
             mutated_sequence)
 
     # ensembl is 1 based..-1

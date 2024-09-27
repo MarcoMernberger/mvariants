@@ -8,11 +8,11 @@ __copyright__ = "Copyright (c) 2020 Marco Mernberger"
 __license__ = "mit"
 
 from pathlib import Path
-from mbf_align.post_process import _PostProcessor
+from mbf.align.post_process import _PostProcessor
 import subprocess
 
 
-class Mutect2Processor(mbf_align.post_process._PostProcessor):
+class Mutect2Processor(mbf.align.post_process._PostProcessor):
     def __init__(
         self,
         result_folder="Mutect2",
@@ -89,7 +89,7 @@ class Mutect2Processor(mbf_align.post_process._PostProcessor):
 class DuplicateMarker:
     """
     Marks duplicate reads in alignments.
-    
+
     [extended_summary]
     """
 
@@ -101,7 +101,7 @@ class DuplicateMarker:
 class GATKBaseScoreRecalibration:
     """
     Wraps the GATK base score recalibration.
-    
+
     [extended_summary]
     """
 

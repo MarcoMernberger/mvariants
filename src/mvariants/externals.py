@@ -1,4 +1,4 @@
-from mbf_externals import ExternalAlgorithm
-from mbf_externals.util import download_file
+from mbf.externals import ExternalAlgorithm
+from mbf.externals.util import download_file
 import subprocess
 from pathlib import Path

@@ -10,13 +10,13 @@ __license__ = "mit"
 from abc import ABC, abstractmethod
 from typing import List, Optional, Dict, Callable, Tuple, Union, Any
 from pathlib import Path
-from mbf_align import AlignedSample
-from mbf_align.post_process import _PostProcessor
-from mbf_genomes import GenomeBase
+from mbf.align import AlignedSample
+from mbf.align.post_process import _PostProcessor
+from mbf.genomes import GenomeBase
 from pypipegraph import Job
 from .base import OptionHandler, GATK
-from mbf_externals import ExternalAlgorithmStore
-import mbf_align
+from mbf.externals import ExternalAlgorithmStore
+import mbf.align
 import subprocess
 import pypipegraph as ppg
 import shutil
@@ -45,7 +45,7 @@ class _PreProcessor(ABC):
 
         Parameters
         ----------
-        input_samples : List[List[mbf_align.AlignedSample]]
+        input_samples : List[List[mbf.align.AlignedSample]]
             List of two lists containing the input samples to be analyzed.
             Multiple samples are given in the first list. Additional matched
             samples can be supplied in the second list.
@@ -70,7 +70,7 @@ class _PreProcessor(ABC):
 
         Parameters
         ----------
-        input_samples : List[List[mbf_align.AlignedSample]]
+        input_samples : List[List[mbf.align.AlignedSample]]
             List of two lists containing the input samples to be analyzed.
             Multiple samples are given in the first list. Additional Matched
             samples can be supplied in the second list.
@@ -234,7 +234,7 @@ class SamtoolsmPileupSingleFile(_PreProcessor):
                 
         Parameters
         ----------
-        input_samples : List[mbf_align.AlignedSample]
+        input_samples : List[mbf.align.AlignedSample]
             List of one or multiple samples as input for the pileup file.
         
         Returns
@@ -260,7 +260,7 @@ class SamtoolsmPileupSingleFile(_PreProcessor):
 
         Parameters
         ----------
-        input_samples : List[List[mbf_align.AlignedSample]]
+        input_samples : List[List[mbf.align.AlignedSample]]
             List of two lists containing the input samples to be analyzed. 
             Multiple samples are given in the first list. Additional matched
             samples can be supplied in the second list.
@@ -310,7 +310,7 @@ class SamtoolsmPileupSingleFile(_PreProcessor):
 
         Parameters
         ----------
-        input_samples : List[mbf_align.AlignedSample]
+        input_samples : List[mbf.align.AlignedSample]
             List of one or multiple samples as input for the pileup file.
         reference_path : Path
             Path to reference file (e.g. genome.fasta).
@@ -355,7 +355,7 @@ class SamtoolsmPileupSingleFile(_PreProcessor):
 
         Parameters
         ----------
-        input_samples : List[List[mbf_align.AlignedSample]]
+        input_samples : List[List[mbf.align.AlignedSample]]
             List of two lists containing the input samples to be analyzed.
             Multiple samples are given in the first list. Additional Matched
             samples can be supplied in the second list.
@@ -524,7 +524,7 @@ class GATKPreprocessor(GATK, _PreProcessor):
 
         Parameters
         ----------
-        input_samples : List[List[mbf_align.AlignedSample]]
+        input_samples : List[List[mbf.align.AlignedSample]]
             List of two lists containing the input samples to be analyzed.
             Multiple samples are given in the first list. Additional Matched
             samples can be supplied in the second list.
@@ -609,10 +609,10 @@ class GATKLanePostProcessor(GATK, _PostProcessor):
     """
     PostProcessor creating GATK-compliant bam files.
 
-    PostProcessor for mbf_align.AlignedSample classes that creates GATK
+    PostProcessor for mbf.align.AlignedSample classes that creates GATK
     compliant bam files. Since this is a preprocessing step for variant calling
     with GATK it is placed here.
-    Subclasses GATK and mbf_align.post_process._PostProcessor.
+    Subclasses GATK and mbf.align.post_process._PostProcessor.
 
     Parameters
     ----------

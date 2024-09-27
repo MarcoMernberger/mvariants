@@ -8,8 +8,8 @@ from mvariants import __version__
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional, Callable, List, Dict, Tuple, Any
-from mbf_align.lanes import AlignedSample
-from mbf_externals import ExternalAlgorithm, ExternalAlgorithmStore
+from mbf.align.lanes import AlignedSample
+from mbf.externals import ExternalAlgorithm, ExternalAlgorithmStore
 from .base import OptionHandler, GATK
 from .pre_process import SamtoolsmPileupSingleFile, _PreProcessor, GATKPreprocessor
 from .util import download_file_and_targz, parse_vcf2
@@ -45,7 +45,10 @@ class _Caller(ABC):
     """
 
     def __init__(
-        self, instance_name: str, preprocessor: Optional[_PreProcessor], **kwargs,
+        self,
+        instance_name: str,
+        preprocessor: Optional[_PreProcessor],
+        **kwargs,
     ):
         """_Caller constructor, see class documentation for details."""
         super().__init__()
@@ -190,7 +193,7 @@ class VarScan2(_Caller, ExternalAlgorithm):
     """
     Wrapper for the VarScan2 variant caller.
 
-    Wrapper for the VarScan2 caller, subclassing both mbf_externals.ExternalAlgorithm
+    Wrapper for the VarScan2 caller, subclassing both mbf.externals.ExternalAlgorithm
     and _Caller. The ExternalAlgorithm takes care of version handling, while the
     _Caller class provides methods for variant analysis.
     VarScan2 can be initialized with a dictionary of options and a preprocessor
@@ -537,7 +540,7 @@ class Mutect2(GATK, _Caller):
     """
     Wrapper for the Mutect2 variant caller.
 
-    Wrapper for the Mutect2 caller, subclassing both mbf_externals.ExternalAlgorithm
+    Wrapper for the Mutect2 caller, subclassing both mbf.externals.ExternalAlgorithm
     and _Caller. The ExternalAlgorithm takes care of version handling, while the
     _Caller class provides methods for variant analysis.
     Mutect2 can be initialized with a dictionary of options and a preprocessor
@@ -664,7 +667,12 @@ class Mutect2(GATK, _Caller):
             for input_sample in input_samples[0]:
                 # this would be tumor
                 cmd_arguments.extend(
-                    ["-I", str(input_sample.bam_filename), "-tumor", input_sample.name,]
+                    [
+                        "-I",
+                        str(input_sample.bam_filename),
+                        "-tumor",
+                        input_sample.name,
+                    ]
                 )
             for input_sample in input_samples[1]:
                 cmd_arguments.extend(
@@ -676,7 +684,12 @@ class Mutect2(GATK, _Caller):
                     ]
                 )
             cmd_arguments.extend(
-                ["-O", str(output_unfiltered), "-R", str(gatk_genome_file),]
+                [
+                    "-O",
+                    str(output_unfiltered),
+                    "-R",
+                    str(gatk_genome_file),
+                ]
             )
             cmd_arguments.extend(OptionHandler.options_as_list_str(self.options))
             cmd = self.build_cmd(

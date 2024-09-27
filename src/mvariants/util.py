@@ -19,7 +19,7 @@ def download_file_and_targz(url: str, filename: str, tar_filename: str) -> None:
     """
     Downloads a file and puts it into a tar.gz archive.
 
-    Downloads a file then puts it into a tar.gz file, which may be needed by 
+    Downloads a file then puts it into a tar.gz file, which may be needed by
     ExternalAlgorithm.
 
     Parameters

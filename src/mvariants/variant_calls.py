@@ -8,7 +8,7 @@ __copyright__ = "Copyright (c) 2020 Marco Mernberger"
 __license__ = "mit"
 
 from typing import List, Union, Any, Callable
-from mbf_align.lanes import AlignedSample
+from mbf.align.lanes import AlignedSample
 from pandas import DataFrame
 from .caller import _Caller
 from pypipegraph import CachedAttributeLoadingJob, FileGeneratingJob
@@ -181,7 +181,8 @@ class VariantCall:
         job.depends_on(lanes_loaded)
         job.depends_on(
             ppg.FunctionInvariant(
-                f"{self.caller.__class__.__name__}.run", self.caller.__class__.run,
+                f"{self.caller.__class__.__name__}.run",
+                self.caller.__class__.run,
             )
         )
         for sample_list in self.input_samples:

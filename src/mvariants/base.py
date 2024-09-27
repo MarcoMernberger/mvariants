@@ -10,8 +10,7 @@ __license__ = "mit"
 from pathlib import Path
 from typing import Optional, Callable, List, Dict, Tuple, Any
 from mvariants import __version__
-from mbf_externals import ExternalAlgorithm, ExternalAlgorithmStore
-from mbf_externals.util import download_zip_and_turn_into_tar_gzip
+from mbf.externals.util import download_zip_and_turn_into_tar_gzip
 import warnings
 import subprocess
 import re
@@ -129,11 +128,11 @@ class OptionHandler:
         """
         Performs a basic check of parameters supplied to an external method.
 
-        Checks a dictionary of supplied parameters for an external method and 
-        compares it to accepted arguments. If set to explicit, this will 
+        Checks a dictionary of supplied parameters for an external method and
+        compares it to accepted arguments. If set to explicit, this will
         also add unspecified parameters to the options with default settings.
         This does not check the supplied values itself, only the parameter
-        names. By default, unknown parameters will be removed and a Warning is 
+        names. By default, unknown parameters will be removed and a Warning is
         raised.
 
         Parameters
@@ -222,7 +221,7 @@ class GATK(ExternalAlgorithm):
     """
     Wrapper class for the GATK toolbox.
 
-    Wrapper for the GATK toolbox that subclasses mbf_externals.ExternalAlgorithm
+    Wrapper for the GATK toolbox that subclasses mbf.externals.ExternalAlgorithm
     to take care of version handling.
     Allows to invoke any GATK method and return help strings and option
     handling.
@@ -283,7 +282,7 @@ class GATK(ExternalAlgorithm):
         """
         Takes care of the tool download.
 
-        Overrides the ExternalAlgorithm methood. Downloads the external method 
+        Overrides the ExternalAlgorithm methood. Downloads the external method
         to the prebuild location specified by the corresponding
         ExternalAlgorithmStore and packs it into a tar.gz file.
 
@@ -326,9 +325,9 @@ class GATK(ExternalAlgorithm):
         """
         Prints a list of accepted GATK tools.
 
-        Calls the GATK tool to get a list of accepted tool commands and prints 
+        Calls the GATK tool to get a list of accepted tool commands and prints
         them.
-        
+
         [extended_summary]
         """
         self.run_command(["--list"])
@@ -413,7 +412,8 @@ class GATK(ExternalAlgorithm):
         command = [str(self.path / self.command[0]), "--list"]
         try:
             help_str = subprocess.check_output(
-                command, stderr=subprocess.STDOUT,
+                command,
+                stderr=subprocess.STDOUT,
             ).decode()
         except subprocess.CalledProcessError as exc:
             help_str = exc.output.decode()
@@ -443,7 +443,8 @@ class GATK(ExternalAlgorithm):
             command = self.build_cmd(None, 1, ["--help"])
             try:
                 help_str = subprocess.check_output(
-                    command, stderr=subprocess.STDOUT,
+                    command,
+                    stderr=subprocess.STDOUT,
                 ).decode()
             except subprocess.CalledProcessError as exc:
                 help_str = exc.output.decode()

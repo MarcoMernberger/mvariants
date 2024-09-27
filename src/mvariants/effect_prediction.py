@@ -7,8 +7,8 @@ __author__ = "Marco Mernberger"
 __copyright__ = "Copyright (c) 2020 Marco Mernberger"
 __license__ = "mit"
 
-from mbf_externals import ExternalAlgorithm, ExternalAlgorithmStore
-from mbf_externals.util import download_file
+from mbf.externals import ExternalAlgorithm, ExternalAlgorithmStore
+from mbf.externals.util import download_file
 from typing import Optional, Dict, List
 from pathlib import Path
 from pypipegraph import Job
@@ -197,7 +197,12 @@ class VEP(ExternalAlgorithm):
         deps = dependencies
         deps.append(
             ppg.ParameterInvariant(
-                f"PI_{output_file}", [self.volumes, self.wdir, str(options),]
+                f"PI_{output_file}",
+                [
+                    self.volumes,
+                    self.wdir,
+                    str(options),
+                ],
             )
         )
         deps.append(variant_call.load())
