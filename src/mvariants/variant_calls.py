@@ -7,14 +7,14 @@ __author__ = "Marco Mernberger"
 __copyright__ = "Copyright (c) 2020 Marco Mernberger"
 __license__ = "mit"
 
+import pypipegraph2 as ppg
 from typing import List, Union, Any, Callable
-from mbf_align.lanes import AlignedSample
+from mbf.align.lanes import AlignedSample
 from pandas import DataFrame
 from .caller import _Caller
-from pypipegraph import CachedAttributeLoadingJob, FileGeneratingJob
+from pypipegraph2 import CachedAttributeLoadingJob, FileGeneratingJob, Job
 from .util import parse_vcf2
 from pathlib import Path
-import pypipegraph as ppg
 
 
 class VariantCall:
@@ -47,7 +47,11 @@ class VariantCall:
     """
 
     def __init__(
-        self, input_samples: List[List[AlignedSample]], caller: _Caller, **wargs
+        self,
+        input_samples: List[List[AlignedSample]],
+        caller: _Caller,
+        dependencies: List[Job] = [],
+        **wargs,
     ):
         """VariantCall constructor, see class documentation for details."""
         self.name = wargs.get("name", None)
@@ -55,9 +59,7 @@ class VariantCall:
         if self.name is None:
             self.name = "-".join([sample.name for sample in input_samples[0]])
             if len(input_samples[1]) > 0:
-                self.name += "_vs_" + "-".join(
-                    [sample.name for sample in input_samples[1]]
-                )
+                self.name += "_vs_" + "-".join([sample.name for sample in input_samples[1]])
             self.name += f"_by_{caller.name}"
         self.result_dir = Path(
             wargs.get("result_dir", input_samples[0][0].result_dir / "SNP_calling")
@@ -72,6 +74,7 @@ class VariantCall:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.output_file = self.result_dir / self.filename
         self.vid = [i.vid for tup in input_samples for i in tup]
+        self.dependencies = dependencies
 
     @classmethod
     def fromvcf(cls, vcf_file: Union[str, Path]) -> DataFrame:
@@ -136,6 +139,9 @@ class VariantCall:
             self.cache_dir / f"{self.name}_df_load", self, "df", do_load
         ).depends_on(self.call())
 
+    def get_dependencies(self):
+        return self.dependencies
+
     def call(self):
         """
         Creates the vcf generating job.
@@ -150,8 +156,8 @@ class VariantCall:
         """
         run_callable = self.caller.run()
 
-        def run():
-            run_callable(self.input_samples, self.output_file)
+        def run(output_file):
+            run_callable(self.input_samples, output_file)
 
         job = ppg.FileGeneratingJob(self.output_file, run, empty_ok=False)
         # job can depend on preprocessor dependencies, caller dependencies and the preprocessor job
@@ -174,14 +180,16 @@ class VariantCall:
                     self.caller.preprocessor.preprocess(self.input_samples),
                 )
                 preprocessor_job.depends_on(lanes_loaded)
-                preprocessor_job.depends_on(
-                    self.caller.preprocessor.get_dependencies()
-                ).depends_on(self.caller.preprocessor.prerequisite_jobs())
+                preprocessor_job.depends_on(self.caller.preprocessor.get_dependencies()).depends_on(
+                    self.caller.preprocessor.prerequisite_jobs()
+                )
                 job.depends_on(preprocessor_job)
+        job.depends_on(self.get_dependencies())
         job.depends_on(lanes_loaded)
         job.depends_on(
             ppg.FunctionInvariant(
-                f"{self.caller.__class__.__name__}.run", self.caller.__class__.run,
+                f"{self.caller.__class__.__name__}.run",
+                self.caller.__class__.run,
             )
         )
         for sample_list in self.input_samples:
@@ -200,7 +208,7 @@ class VariantCall:
             Job that writes the result dataframe.
         """
 
-        def __write():
+        def __write(output_filename):
             self.df.to_csv(output_filename, sep="\t", index=False)
 
         return ppg.FileGeneratingJob(output_filename, __write).depends_on(self.load())

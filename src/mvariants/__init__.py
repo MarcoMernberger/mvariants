@@ -22,3 +22,8 @@ from .pre_process import (
     GATKLanePostProcessor,
 )
 from .effect_prediction import VEP
+from .signatures import (
+    summary__varscan_matched,
+    signature_analysis,
+    summary__varscan_matched_dump_exons,
+)

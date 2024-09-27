@@ -7,9 +7,8 @@ from pypipegraph import Job
 from mvariants import __version__
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional, Callable, List, Dict, Tuple, Any
-from mbf_align.lanes import AlignedSample
-from mbf_externals import ExternalAlgorithm, ExternalAlgorithmStore
+from typing import Optional, Callable, List, Dict, Tuple, Any, Union
+from mbf.align.lanes import AlignedSample
 from .base import OptionHandler, GATK
 from .pre_process import SamtoolsmPileupSingleFile, _PreProcessor, GATKPreprocessor
 from .util import download_file_and_targz, parse_vcf2
@@ -45,7 +44,10 @@ class _Caller(ABC):
     """
 
     def __init__(
-        self, instance_name: str, preprocessor: Optional[_PreProcessor], **kwargs,
+        self,
+        instance_name: str,
+        preprocessor: Optional[_PreProcessor],
+        **kwargs,
     ):
         """_Caller constructor, see class documentation for details."""
         super().__init__()
@@ -186,7 +188,7 @@ class _Caller(ABC):
         return 1
 
 
-class VarScan2(_Caller, ExternalAlgorithm):
+class VarScan2(_Caller):
     """
     Wrapper for the VarScan2 variant caller.
 
@@ -208,9 +210,6 @@ class VarScan2(_Caller, ExternalAlgorithm):
         Dictionary of parameter-values to be supplied to the GATK call.
     version : str, optional
         Version of the tool to be used, by default "_last_used".
-    store : ExterrnalAlgorithmStore, optional
-        Store that handles downloads and provides thh external tool, by default
-        None.
 
     Raises
     ------
@@ -221,16 +220,14 @@ class VarScan2(_Caller, ExternalAlgorithm):
     def __init__(
         self,
         caller_type: str,
-        preprocessor: _PreProcessor = None,
+        preprocessor: Optional[Union[_PreProcessor, str]] = "default",
         options: Dict[str, Any] = {},
-        version: str = "_last_used",
-        store: Optional[ExternalAlgorithmStore] = None,
         **kwargs,
     ) -> None:
         """VarScan2 constructor, see class documentation for details."""
         _instance_name = kwargs.get("instance_name", f"Varscan_{caller_type}")
         _preprocessor = preprocessor
-        if _preprocessor is None:
+        if _preprocessor == "default":
             # if no preprocessor is given, initialize a default samtools pileup
             _preprocessor = SamtoolsmPileupSingleFile(
                 min_base_quality=options.get("--min-avg-qual", 15)
@@ -238,10 +235,8 @@ class VarScan2(_Caller, ExternalAlgorithm):
         super().__init__(
             instance_name=_instance_name,
             preprocessor=_preprocessor,
-            version=version,
-            store=store,
         )
-        self.jarname = f"VarScan.v{self.version}.jar"
+        self.command = "varscan"
         self.valid_types = self.get_valid_types()
         if caller_type not in self.valid_types:
             raise ValueError(
@@ -257,26 +252,6 @@ class VarScan2(_Caller, ExternalAlgorithm):
         self._options = self.optionhandler.check_options(options)
         if len(self._options) == 0:
             self._options = self.optionhandler.default_parameter
-
-    latest_version = "2.4.4"
-
-    def fetch_version(self, version: str, target_filename: Path):
-        """
-        Takes care of the tool download.
-
-        Overrides the ExternalAlgorithm methood. Downloads the jar file
-        to the prebuild location specified by the corresponding
-        ExternalAlgorithmStore and packs it into a tar.gz file.
-
-        Parameters
-        ----------
-        version : str
-            The tool version to be used.
-        target_filename : Path
-            The path to the local tar.gz file.
-        """
-        url = f"https://github.com/dkoboldt/varscan/raw/master/VarScan.v{version}.jar"
-        download_file_and_targz(url, f"VarScan.v{version}.jar", target_filename)
 
     @property
     def name(self) -> str:
@@ -306,9 +281,7 @@ class VarScan2(_Caller, ExternalAlgorithm):
         """
         return False
 
-    def build_cmd(
-        self, output_directory: Optional[Path], ncores: int, arguments: List[str]
-    ):
+    def build_cmd(self, output_directory: Optional[Path], ncores: int, arguments: List[str]):
         """
         Returns a command as a list of strings to be passed to subprocess.
 
@@ -330,11 +303,13 @@ class VarScan2(_Caller, ExternalAlgorithm):
         List[str]
             Command to subprocess as a list of strings.
         """
-        return ["java", "-jar", str(self.path / self.jarname)] + arguments
+        return [self.command] + arguments
 
-    def get_latest_version(self) -> str:
+    def get_version(self) -> str:
         """Getter for the latest_version attribute."""
-        return self.latest_version
+        out = subprocess.check_output([self.command])
+        version = out.decode().split("\n")[0].replace("VarScan v", "")
+        return version
 
     def __execute(self, command):
         """Calls a command via subprocess."""
@@ -428,9 +403,7 @@ class VarScan2(_Caller, ExternalAlgorithm):
             A callable that runs the actual analysis.
         """
 
-        def call(
-            input_files: List[List[AlignedSample]], output_file: Path, *args, **kwargs
-        ):
+        def call(input_files: List[List[AlignedSample]], output_file: Path, *args, **kwargs):
             cmd_call = [self.caller_type]
             cmd_call.extend([str(posixpath) for posixpath in input_files])
             cmd_call.append(str(output_file))
@@ -458,10 +431,12 @@ class VarScan2(_Caller, ExternalAlgorithm):
                 arguments=cmd_call,
             )
             output_file.parent.mkdir(parents=True, exist_ok=True)
-            with Path(str(output_file) + ".varscan.log").open(
+            with Path(str(output_file) + ".varscan.log").open("w") as stderr, output_file.open(
                 "w"
-            ) as stderr, output_file.open("w") as outp:
+            ) as outp:
                 stderr.write(" ".join(cmd_call) + "\n")
+                print(" ".join(cmd_call))
+                raise ValueError()
                 try:
                     p2 = subprocess.Popen(cmd_call, stdout=outp, stderr=stderr)
                     p2.communicate()
@@ -552,11 +527,6 @@ class Mutect2(GATK, _Caller):
         genome must be specified.
     options : Optional[Dict[str, str]], optional
         Dictionary of parameter-values to be supplied to the Mutect2 call.
-    version : str, optional
-        Version of the tool to be used, by default "_last_used".
-    store : ExterrnalAlgorithmStore, optional
-        Store that handles downloads and provides thh external tool, by default
-        None.
 
     Raises
     ------
@@ -566,10 +536,8 @@ class Mutect2(GATK, _Caller):
 
     def __init__(
         self,
-        preprocessor: _PreProcessor = None,
+        preprocessor: Optional[_PreProcessor] = None,
         options: Dict[str, Any] = {},
-        version: str = "_last_used",
-        store: Optional[ExternalAlgorithmStore] = None,
         **kwargs,
     ):
         """Mutect2 constructor, see class documentation for details."""
@@ -584,12 +552,10 @@ class Mutect2(GATK, _Caller):
                 _preprocessor = GATKPreprocessor(
                     genome=genome, instance_name="GATKPreprocess_default"
                 )
-        _instance_name = kwargs.get("instance_name", f"Mutect2")
+        _instance_name = kwargs.get("instance_name", "Mutect2")
         super().__init__(
             tool="Mutect2",
             options=options,
-            version=version,
-            store=store,
             instance_name=_instance_name,
             preprocessor=_preprocessor,
             **kwargs,
@@ -603,10 +569,6 @@ class Mutect2(GATK, _Caller):
         Overrides the ExternalAlgorithm method.
         """
         return True
-
-    def get_latest_version(self):
-        """Getter for the latest_version attribute."""
-        return self.latest_version
 
     def __repr__(self) -> str:
         return f"Mutect2({self.preprocessor.__repr__()})"  # , {self.options}
@@ -641,30 +603,29 @@ class Mutect2(GATK, _Caller):
             A callable that runs the actual analysis.
         """
 
-        def call(
-            input_samples: List[List[AlignedSample]], output_file: Path, *args, **kwargs
-        ):
+        def call(input_samples: List[List[AlignedSample]], output_file: Path, *args, **kwargs):
             if len(args) > 0:
                 # the preprocessor run_modifier will take care of this
                 gatk_genome_file = args[0]
             else:
                 gatk_genome_file = input_samples[0].genome.find_file("genome.fasta")
 
-            output_unfiltered = output_file.parent / (
-                output_file.stem + ".unfiltered.vcf"
-            )
+            output_unfiltered = output_file.parent / (output_file.stem + ".unfiltered.vcf")
             output_file.parent.mkdir(exist_ok=True, parents=True)
 
             if len(input_samples[1]) == 0:
-                raise ValueError(
-                    "Mutect2 currently does not support single sample calling."
-                )
+                raise ValueError("Mutect2 currently does not support single sample calling.")
             else:
                 cmd_arguments = []
             for input_sample in input_samples[0]:
                 # this would be tumor
                 cmd_arguments.extend(
-                    ["-I", str(input_sample.bam_filename), "-tumor", input_sample.name,]
+                    [
+                        "-I",
+                        str(input_sample.bam_filename),
+                        "-tumor",
+                        input_sample.name,
+                    ]
                 )
             for input_sample in input_samples[1]:
                 cmd_arguments.extend(
@@ -676,12 +637,15 @@ class Mutect2(GATK, _Caller):
                     ]
                 )
             cmd_arguments.extend(
-                ["-O", str(output_unfiltered), "-R", str(gatk_genome_file),]
+                [
+                    "-O",
+                    str(output_unfiltered),
+                    "-R",
+                    str(gatk_genome_file),
+                ]
             )
             cmd_arguments.extend(OptionHandler.options_as_list_str(self.options))
-            cmd = self.build_cmd(
-                output_unfiltered.parent, self.get_cores_needed(), cmd_arguments
-            )
+            cmd = self.build_cmd(output_unfiltered.parent, self.get_cores_needed(), cmd_arguments)
             stderr = Path(str(output_file) + ".mutect2.log").open("w")
             stderr.write(" ".join(cmd) + "\n")
             try:
@@ -691,9 +655,7 @@ class Mutect2(GATK, _Caller):
                 raise
             stderr.write("-----Filtering------\n")
             try:
-                cmd_filter = self.filter_mutect(
-                    output_unfiltered, gatk_genome_file, output_file
-                )
+                cmd_filter = self.filter_mutect(output_unfiltered, gatk_genome_file, output_file)
                 subprocess.check_call(cmd_filter, stderr=stderr)
             except subprocess.CalledProcessError:
                 print(" ".join(cmd_filter))
@@ -705,9 +667,7 @@ class Mutect2(GATK, _Caller):
             call = modifier(call)
         return call
 
-    def filter_mutect(
-        self, infile: Path, gatk_genome_file: Path, output_file: Path
-    ) -> List[str]:
+    def filter_mutect(self, infile: Path, gatk_genome_file: Path, output_file: Path) -> List[str]:
         """
         Builds a command for filtering Mutect2 results.
 
